@@ -3,6 +3,7 @@ import type { ThemeMode } from "../../types/app";
 import type { CodexController } from "../../types/workspace";
 import { useI18n } from "../../i18n/I18nProvider";
 import { getWorkspaceCopy } from "../../i18n/workspaceCopy";
+import { recordUiDiagnostic } from "../../utils/uiDiagnostics";
 
 export function SettingsView({
   c,
@@ -26,6 +27,9 @@ export function SettingsView({
     const windowScrollX = window.scrollX;
     const windowScrollY = window.scrollY;
 
+    recordUiDiagnostic("settings-ui-update-requested", {
+      fields: Object.keys(patch).sort(),
+    });
     void c.updateSettings(patch, options).finally(() => {
       window.requestAnimationFrame(() => {
         const currentStage = document.getElementById("workspace-content");
@@ -33,6 +37,10 @@ export function SettingsView({
         if (currentStage) currentStage.scrollTop = stageScrollTop;
         if (currentPage) currentPage.scrollTop = pageScrollTop;
         window.scrollTo(windowScrollX, windowScrollY);
+        recordUiDiagnostic("settings-ui-update-settled", {
+          fields: Object.keys(patch).sort(),
+          activeTab: "settings",
+        });
       });
     });
   };

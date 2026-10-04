@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getWorkspaceCopy } from "../../i18n/workspaceCopy";
 import {
   PROJECT_CHANGELOG_URL,
@@ -8,7 +9,11 @@ import {
 } from "../../constants/externalLinks";
 import type { SettingsWorkspace } from "./useSettingsWorkspace";
 import { GitHubIcon } from "./GitHubIcon";
+import { copyUiDiagnosticReport } from "../../utils/uiDiagnostics";
 export function AboutSettings({ workspace }: { workspace: SettingsWorkspace }) {
+  const [diagnosticCopyStatus, setDiagnosticCopyStatus] = useState<
+    "idle" | "copied" | "failed"
+  >("idle");
   const {
     developerContent,
     locale,
@@ -77,6 +82,29 @@ export function AboutSettings({ workspace }: { workspace: SettingsWorkspace }) {
             onClick={() => onOpenExternalUrl(PROJECT_CHANGELOG_URL)}
           >
             {copy.settings.projectInfo.openChangelog}
+          </button>
+        </div>
+      </div>
+      <div className="settingRow">
+        <div className="settingMeta">
+          <strong>界面故障诊断</strong>
+          <span>记录最近的页面尺寸、设置操作和界面错误；不记录账号列表或授权令牌。</span>
+        </div>
+        <div className="settingActionGroup">
+          <button
+            className="ghost"
+            onClick={() => {
+              void copyUiDiagnosticReport().then(
+                () => setDiagnosticCopyStatus("copied"),
+                () => setDiagnosticCopyStatus("failed"),
+              );
+            }}
+          >
+            {diagnosticCopyStatus === "copied"
+              ? "诊断信息已复制"
+              : diagnosticCopyStatus === "failed"
+                ? "复制失败"
+                : "复制界面诊断"}
           </button>
         </div>
       </div>

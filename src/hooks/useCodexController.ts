@@ -52,6 +52,7 @@ import {
   getLatestChangelogEntry,
   getUnreleasedChangelogEntry,
 } from "../utils/changelog";
+import { recordUiDiagnostic } from "../utils/uiDiagnostics";
 
 const COST_ANALYTICS_STALE_MS = 30 * 60 * 1000;
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
@@ -631,7 +632,10 @@ export function useCodexController(
   const updateSettings = useCallback(
     async (patch: Partial<AppSettings>, options?: UpdateSettingsOptions) => {
       const shouldLockUi = !options?.keepInteractive;
+      const fields = Object.keys(patch).sort();
+      recordUiDiagnostic("settings-update-start", { fields });
       const task = async () => {
+        let result = "success";
         if (shouldLockUi) {
           setSavingSettings(true);
         }
@@ -640,12 +644,21 @@ export function useCodexController(
           const data = await invoke<AppSettings>("update_app_settings", {
             patch,
           });
+          recordUiDiagnostic("settings-update-backend-success", {
+            fields,
+            responseFields: Object.keys(data ?? {}).sort(),
+          });
           settingsRef.current = data;
           setSettings(data);
           if (!options?.silent) {
             setNotice({ type: "ok", message: copy.notices.settingsUpdated });
           }
         } catch (error) {
+          result = "failure";
+          recordUiDiagnostic("settings-update-backend-failure", {
+            fields,
+            error: error instanceof Error ? error.stack || error.message : String(error),
+          });
           setNotice({
             type: "error",
             message: copy.notices.updateSettingsFailed(
@@ -656,6 +669,7 @@ export function useCodexController(
             throw error;
           }
         } finally {
+          recordUiDiagnostic("settings-update-finished", { fields, result });
           if (shouldLockUi) {
             setSavingSettings(false);
           }

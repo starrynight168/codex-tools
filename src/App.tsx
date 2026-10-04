@@ -3,6 +3,7 @@ import {
   lazy,
   Suspense,
   useCallback,
+  useEffect,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -18,6 +19,11 @@ import type { AppTab } from "./types/workspace";
 import { AppLayoutProvider } from "./components/layout/AppLayoutProvider";
 import { useAppLayout } from "./hooks/useAppLayout";
 import { ClassicTopBar } from "./components/classic/ClassicTopBar";
+import {
+  copyUiDiagnosticReport,
+  installUiDiagnostics,
+  recordUiDiagnostic,
+} from "./utils/uiDiagnostics";
 
 const AnalyticsView = lazy(() =>
   import("./components/workspace/AnalyticsView").then((module) => ({
@@ -37,12 +43,23 @@ const SettingsView = lazy(() =>
 
 class WorkspaceContentBoundary extends Component<
   { children: ReactNode },
-  { hasError: boolean; error: unknown; componentStack: string }
+  {
+    hasError: boolean;
+    error: unknown;
+    componentStack: string;
+    copyStatus: "idle" | "copied" | "failed";
+  }
 > {
-  state: { hasError: boolean; error: unknown; componentStack: string } = {
+  state: {
+    hasError: boolean;
+    error: unknown;
+    componentStack: string;
+    copyStatus: "idle" | "copied" | "failed";
+  } = {
     hasError: false,
     error: null,
     componentStack: "",
+    copyStatus: "idle",
   };
 
   static getDerivedStateFromError(error: unknown) {
@@ -51,6 +68,12 @@ class WorkspaceContentBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Workspace content render failed", error, info.componentStack);
+    recordUiDiagnostic("react-render-error", {
+      error:
+        error.stack ||
+        `${error.name}: ${error.message || "(empty error message)"}`,
+      componentStack: info.componentStack ?? "",
+    });
     this.setState({ componentStack: info.componentStack ?? "" });
   }
 
@@ -62,14 +85,37 @@ class WorkspaceContentBoundary extends Component<
           ? `${error.name}: ${error.message || "(empty error message)"}`
           : String(error ?? "Unknown render error");
       const stack = error instanceof Error ? error.stack : "";
-      const details = [message, stack, componentStack].filter(Boolean).join("\n\n");
+      const details = [message, stack, componentStack]
+        .filter(Boolean)
+        .join("\n\n");
 
       return (
         <div
           role="alert"
-          style={{ width: "100%", height: "100%", overflow: "auto", padding: 24 }}
+          style={{
+            width: "100%",
+            height: "100%",
+            overflow: "auto",
+            padding: 24,
+          }}
         >
           <strong>页面渲染失败</strong>
+          <button
+            type="button"
+            onClick={() => {
+              void copyUiDiagnosticReport().then(
+                () => this.setState({ copyStatus: "copied" }),
+                () => this.setState({ copyStatus: "failed" }),
+              );
+            }}
+            style={{ margin: "16px 0", padding: "8px 12px" }}
+          >
+            {this.state.copyStatus === "copied"
+              ? "诊断信息已复制"
+              : this.state.copyStatus === "failed"
+                ? "复制失败"
+                : "复制诊断信息"}
+          </button>
           <pre
             style={{
               width: "100%",
@@ -91,6 +137,9 @@ function AppWorkspace() {
   const { layout } = useAppLayout();
   const [activeTab, setActiveTab] = useState<AppTab>("accounts");
   const [accountSearchOpen, setAccountSearchOpen] = useState(false);
+  useEffect(() => {
+    recordUiDiagnostic("tab-selected", { activeTab, layout });
+  }, [activeTab, layout]);
   const openAccountSearch = useCallback(() => {
     setAccountSearchOpen(true);
     window.requestAnimationFrame(() =>
@@ -206,10 +255,14 @@ function AppWorkspace() {
 }
 
 function App() {
+  useEffect(() => installUiDiagnostics(), []);
+
   return (
-    <AppLayoutProvider>
-      <AppWorkspace />
-    </AppLayoutProvider>
+    <WorkspaceContentBoundary>
+      <AppLayoutProvider>
+        <AppWorkspace />
+      </AppLayoutProvider>
+    </WorkspaceContentBoundary>
   );
 }
 
