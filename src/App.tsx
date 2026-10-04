@@ -1,4 +1,12 @@
-import { lazy, Suspense, useCallback, useState } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import "./App.css";
 import { AppTopBar } from "./components/AppTopBar";
 import { AppDialogs } from "./components/workspace/AppDialogs";
@@ -26,6 +34,41 @@ const SettingsView = lazy(() =>
     default: module.SettingsView,
   })),
 );
+
+class WorkspaceContentBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Workspace content render failed", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="workspaceLoading" role="alert">
+          <strong>页面渲染失败</strong>
+          <pre
+            style={{
+              maxWidth: "min(900px, 90%)",
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {this.state.error.stack ?? this.state.error.message}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppWorkspace() {
   const { layout } = useAppLayout();
@@ -105,32 +148,34 @@ function AppWorkspace() {
             id="workspace-content"
             aria-label={activeTab}
           >
-            <Suspense
-              fallback={
-                <div className="workspaceLoading" role="status">
-                  …
-                </div>
-              }
-            >
-              {activeTab === "accounts" ? (
-                <AccountsView
-                  c={c}
-                  searchVisible={accountSearchOpen}
-                  onCloseSearch={closeAccountSearch}
-                  onShowAnalytics={() => setActiveTab("analytics")}
-                />
-              ) : activeTab === "analytics" ? (
-                <AnalyticsView c={c} />
-              ) : activeTab === "proxy" ? (
-                <ProxyView c={c} />
-              ) : (
-                <SettingsView
-                  c={c}
-                  themeMode={themeMode}
-                  toggleTheme={toggleTheme}
-                />
-              )}
-            </Suspense>
+            <WorkspaceContentBoundary key={activeTab}>
+              <Suspense
+                fallback={
+                  <div className="workspaceLoading" role="status">
+                    …
+                  </div>
+                }
+              >
+                {activeTab === "accounts" ? (
+                  <AccountsView
+                    c={c}
+                    searchVisible={accountSearchOpen}
+                    onCloseSearch={closeAccountSearch}
+                    onShowAnalytics={() => setActiveTab("analytics")}
+                  />
+                ) : activeTab === "analytics" ? (
+                  <AnalyticsView c={c} />
+                ) : activeTab === "proxy" ? (
+                  <ProxyView c={c} />
+                ) : (
+                  <SettingsView
+                    c={c}
+                    themeMode={themeMode}
+                    toggleTheme={toggleTheme}
+                  />
+                )}
+              </Suspense>
+            </WorkspaceContentBoundary>
           </section>
         </div>
         <AppDialogs
