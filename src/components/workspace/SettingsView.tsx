@@ -24,9 +24,6 @@ export function SettingsView({
     const page = stage?.firstElementChild as HTMLElement | null;
     const stageScrollTop = stage?.scrollTop ?? 0;
     const pageScrollTop = page?.scrollTop ?? 0;
-    const windowScrollX = window.scrollX;
-    const windowScrollY = window.scrollY;
-
     recordUiDiagnostic("settings-ui-update-requested", {
       fields: Object.keys(patch).sort(),
     });
@@ -36,7 +33,6 @@ export function SettingsView({
         const currentPage = currentStage?.firstElementChild as HTMLElement | null;
         if (currentStage) currentStage.scrollTop = stageScrollTop;
         if (currentPage) currentPage.scrollTop = pageScrollTop;
-        window.scrollTo(windowScrollX, windowScrollY);
         recordUiDiagnostic("settings-ui-update-settled", {
           fields: Object.keys(patch).sort(),
           activeTab: "settings",

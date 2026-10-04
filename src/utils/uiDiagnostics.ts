@@ -6,6 +6,7 @@ type UiDiagnosticEvent = {
   event: string;
   details: Record<string, string | number | boolean | null>;
   viewport: { width: number; height: number; pixelRatio: number };
+  windowScroll: { x: number; y: number };
   layout: string | null;
   elements: Record<string, unknown>;
 };
@@ -58,6 +59,7 @@ function readElements() {
       y: Math.round(rect.y),
       width: Math.round(rect.width),
       height: Math.round(rect.height),
+      scrollTop: element.scrollTop,
       display: style.display,
       visibility: style.visibility,
       overflow: style.overflow,
@@ -97,6 +99,7 @@ export function recordUiDiagnostic(
         height: window.innerHeight,
         pixelRatio: window.devicePixelRatio,
       },
+      windowScroll: { x: window.scrollX, y: window.scrollY },
       layout: document.documentElement.dataset.layout ?? null,
       elements: readElements(),
     };
@@ -152,6 +155,7 @@ export function getUiDiagnosticReport() {
         height: window.innerHeight,
         pixelRatio: window.devicePixelRatio,
       },
+      windowScroll: { x: window.scrollX, y: window.scrollY },
       layout: document.documentElement.dataset.layout ?? null,
       elements: readElements(),
       events: readEvents(),
