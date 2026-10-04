@@ -15,6 +15,27 @@ export function SettingsView({
 }) {
   const { locale } = useI18n();
   const text = getWorkspaceCopy(locale);
+  const updateSettings = (
+    patch: Parameters<typeof c.updateSettings>[0],
+    options?: Parameters<typeof c.updateSettings>[1],
+  ) => {
+    const stage = document.getElementById("workspace-content");
+    const page = stage?.firstElementChild as HTMLElement | null;
+    const stageScrollTop = stage?.scrollTop ?? 0;
+    const pageScrollTop = page?.scrollTop ?? 0;
+    const windowScrollX = window.scrollX;
+    const windowScrollY = window.scrollY;
+
+    void c.updateSettings(patch, options).finally(() => {
+      window.requestAnimationFrame(() => {
+        const currentStage = document.getElementById("workspace-content");
+        const currentPage = currentStage?.firstElementChild as HTMLElement | null;
+        if (currentStage) currentStage.scrollTop = stageScrollTop;
+        if (currentPage) currentPage.scrollTop = pageScrollTop;
+        window.scrollTo(windowScrollX, windowScrollY);
+      });
+    });
+  };
   return (
     <SettingsPanel
       developerContent={
@@ -34,9 +55,7 @@ export function SettingsView({
       installedEditorApps={c.installedEditorApps}
       hasOpencodeDesktopApp={c.hasOpencodeDesktopApp}
       savingSettings={c.savingSettings}
-      onUpdateSettings={(patch, options) =>
-        void c.updateSettings(patch, options)
-      }
+      onUpdateSettings={updateSettings}
     />
   );
 }
