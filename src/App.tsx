@@ -37,31 +37,48 @@ const SettingsView = lazy(() =>
 
 class WorkspaceContentBoundary extends Component<
   { children: ReactNode },
-  { error: Error | null }
+  { hasError: boolean; error: unknown; componentStack: string }
 > {
-  state: { error: Error | null } = { error: null };
+  state: { hasError: boolean; error: unknown; componentStack: string } = {
+    hasError: false,
+    error: null,
+    componentStack: "",
+  };
 
-  static getDerivedStateFromError(error: Error) {
-    return { error };
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Workspace content render failed", error, info.componentStack);
+    this.setState({ componentStack: info.componentStack ?? "" });
   }
 
   render() {
-    if (this.state.error) {
+    if (this.state.hasError) {
+      const { error, componentStack } = this.state;
+      const message =
+        error instanceof Error
+          ? `${error.name}: ${error.message || "(empty error message)"}`
+          : String(error ?? "Unknown render error");
+      const stack = error instanceof Error ? error.stack : "";
+      const details = [message, stack, componentStack].filter(Boolean).join("\n\n");
+
       return (
-        <div className="workspaceLoading" role="alert">
+        <div
+          role="alert"
+          style={{ width: "100%", height: "100%", overflow: "auto", padding: 24 }}
+        >
           <strong>页面渲染失败</strong>
           <pre
             style={{
-              maxWidth: "min(900px, 90%)",
+              width: "100%",
               whiteSpace: "pre-wrap",
               overflowWrap: "anywhere",
+              fontSize: 12,
             }}
           >
-            {this.state.error.stack ?? this.state.error.message}
+            {details || "The renderer did not provide error details."}
           </pre>
         </div>
       );
